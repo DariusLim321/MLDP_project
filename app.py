@@ -7,18 +7,7 @@ import base64
 # Set page config as the first command
 st.set_page_config(page_title="Cardiovascular Disease Prediction App", layout="wide")
 
-# Function to encode the image in base64
-def get_base64_image(image_path):
-    with open(image_path, "rb") as file:
-        return base64.b64encode(file.read()).decode()
 
-# Path to the image in your repository
-# image_path = "cardio.jpg"  # Ensure this matches your uploaded image's name
-
-# # Encode the image
-# base64_image = get_base64_image(image_path)
-
-# CSS for background image with overlay
 overlay_css = f'''
 <style>
 .stApp {{
@@ -48,10 +37,10 @@ h1, h2 {{
 st.markdown(overlay_css, unsafe_allow_html=True)
 
 # Load the saved Gradient Boosting model
-gb_model = joblib.load('gradient_boosting_classifier.pkl')
+gb_model = joblib.load('GradientBoostingClassifierModel.pkl')
 
 # Load the scaler
-scaler = joblib.load('standardscaler.pkl')
+scaler = joblib.load('standard_scaler.pkl')
 
 
 # Define the Streamlit app
@@ -63,7 +52,7 @@ st.markdown("<h1 style='text-align: center;'>Cardiovascular Disease Prediction A
 st.sidebar.write("""Please fill in the details below to get the prediction from the Gradient Boosting model.""")
 
 # Input fields with emojis
-gender = st.sidebar.selectbox("Gender 👤", [1, 2], format_func=lambda x: "Male 👨" if x == 1 else "Female 👩")
+gender = 0 if st.sidebar.selectbox("Gender 👤", [1, 2], format_func=lambda x: "Female 👩" if x == 1 else "Male 👨") == 1 else 1
 age_years = st.sidebar.slider("Age in years 🎂", min_value=1, max_value=120, value=30)
 smoke = st.sidebar.selectbox("Do you smoke? 🚬", [0, 1], format_func=lambda x: "No 🚫" if x == 0 else "Yes 👍")
 alco = st.sidebar.selectbox("Do you consume alcohol? 🍷", [0, 1], format_func=lambda x: "No 🚫" if x == 0 else "Yes 🍻")
@@ -115,26 +104,39 @@ st.dataframe(input_data_df)
 
 st.markdown("<h2 style='text-align: center;'>Prediction</h2>", unsafe_allow_html=True)
 
-# One-hot encoding for cholesterol and glucose
-chol_1, chol_2, chol_3 = (cholesterol == i for i in range(1, 4))
-gluc_1, gluc_2, gluc_3 = (gluc == i for i in range(1, 4))
-
-# Create a numpy array from the input data
-input_data = np.array([[gender, ap_hi, ap_lo, smoke, alco, active, age_years, BMI, 
-                        chol_1, chol_2, chol_3, gluc_1, gluc_2, gluc_3, 
-                        pulse_pressure]])
-
-# Scale the input data
-input_data_scaled = scaler.transform(input_data)
-
-# Make predictions with the Gradient Boosting model
-gb_pred = gb_model.predict(input_data_scaled)
-gb_pred_proba = gb_model.predict_proba(input_data_scaled)
-
-# Display the prediction with emojis
-if gb_pred[0] == 0:
-    st.markdown(f"<p style='color: white; font-size: 18px; text-align: center;'>No Cardiovascular Disease predicted with a probability of {gb_pred_proba[0][0] * 100:.2f}%.</p>", unsafe_allow_html=True)
+# Check for invalid blood pressure values
+if ap_lo >= ap_hi:
+    st.markdown(
+        "<p style='color: red; font-size: 18px; text-align: center;'>"
+        "Error: Systolic blood pressure (ap_hi) must be greater than diastolic blood pressure (ap_lo). "
+        "Please correct the values to proceed.</p>",
+        unsafe_allow_html=True
+    )
 else:
-    st.markdown(f"<p style='color: white; font-size: 18px; text-align: center;'>Cardiovascular Disease predicted with a probability of {gb_pred_proba[0][1] * 100:.2f}%.</p>", unsafe_allow_html=True)
+    # One-hot encoding for cholesterol and glucose
+    chol_1, chol_2, chol_3 = (cholesterol == i for i in range(1, 4))
+    gluc_1, gluc_2, gluc_3 = (gluc == i for i in range(1, 4))
+
+    # Create a numpy array from the input data
+    input_data = np.array([[gender, ap_hi, ap_lo, smoke, alco, active, age_years, BMI, 
+                            chol_1, chol_2, chol_3, gluc_1, gluc_2, gluc_3, 
+                            pulse_pressure]])
+
+    # Scale the input data
+    input_data_scaled = scaler.transform(input_data)
+
+    # Make predictions with the Gradient Boosting model
+    gb_pred = gb_model.predict(input_data_scaled)
+    gb_pred_proba = gb_model.predict_proba(input_data_scaled)
+
+    # Display the prediction with emojis
+    if gb_pred[0] == 0:
+        st.markdown(f"<p style='color: white; font-size: 18px; text-align: center;'>"
+                    f"No Cardiovascular Disease predicted with a probability of {gb_pred_proba[0][0] * 100:.2f}%.</p>",
+                    unsafe_allow_html=True)
+    else:
+        st.markdown(f"<p style='color: white; font-size: 18px; text-align: center;'>"
+                    f"Cardiovascular Disease predicted with a probability of {gb_pred_proba[0][1] * 100:.2f}%.</p>",
+                    unsafe_allow_html=True)
 
 st.sidebar.write("For more information, contact the developer.")
